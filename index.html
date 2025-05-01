@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Smart Spendr</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    :root {
+      --bg-color: #0b061f;
+      --text-color: white;
+      --input-bg: #2a2a3a;
+      --section-bg: linear-gradient(135deg, #2c3e50, #4ca1af);
+    }
+    body.light-mode {
+      --bg-color: #ffffff;
+      --text-color: #111;
+      --input-bg: #f0f0f0;
+      --section-bg: linear-gradient(135deg, #cceeff, #e6f7ff);
+    }
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: 'Segoe UI', sans-serif;
+    }
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      transition: background 0.5s, color 0.5s;
+    }
+    .splash, .login-page, .home-page {
+      display: none;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+      min-height: 100vh;
+      padding: 20px;
+    }
+    .splash {
+      display: flex;
+      background: linear-gradient(135deg, #6f42c1, #28a745);
+      animation: fadeInScale 2.5s ease forwards;
+    }
+    @keyframes fadeInScale {
+      to { opacity: 1; transform: scale(1); }
+    }
+    .logo { width: 150px; }
+    input, select {
+      padding: 12px; margin: 8px 0; width: 100%; max-width: 300px;
+      border: none; border-radius: 8px;
+      background: var(--input-bg); color: var(--text-color);
+    }
+    button {
+      padding: 10px 18px; margin-top: 10px;
+      border: none; border-radius: 8px;
+      background: linear-gradient(45deg, #00d2ff, #3a47d5);
+      color: white; font-weight: bold;
+      cursor: pointer; font-size: 16px;
+      transition: transform 0.3s;
+    }
+    button:hover { transform: scale(1.05); }
+    .toggle-mode { cursor: pointer; font-size: 24px; }
+    .section {
+      width: 100%; max-width: 800px; background: var(--section-bg);
+      margin: 20px 0; padding: 20px; border-radius: 12px;
+    }
+    .expense-list li {
+      display: flex; justify-content: space-between;
+      background: #444; margin: 5px 0; padding: 8px;
+      border-radius: 6px; color: white;
+    }
+    .light-mode .expense-list li { background: #ddd; color: #000; }
+    .charts-container canvas {
+      max-width: 100%;
+      background: white;
+      padding: 10px;
+      border-radius: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div class="splash" id="splash">
+    <img src="Logo.png" alt="Smart Spendr Logo" class="logo" />
+  </div>
+
+  <div class="login-page" id="loginPage">
+    <h2>Login to Smart Spendr</h2>
+    <input type="text" placeholder="Email or Phone" id="email">
+    <input type="password" placeholder="Password" id="password">
+    <button id="signInBtn">Sign In</button>
+  </div>
+
+  <div class="home-page" id="homePage">
+    <div class="section profile-section" style="margin-bottom: 20px;">
+      <h2 style="display: flex; justify-content: space-between; align-items: center;">
+        <span>Smart Spendr Dashboard</span>
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <span id="toggleMode" class="toggle-mode" style="cursor: pointer;">🌙</span>
+          <img id="profilePic" src="https://via.placeholder.com/40" alt="Profile" style="width: 40px; height: 40px; border-radius: 50%; cursor: pointer;">
+        </div>
+      </h2>
+    
+      <div id="profilePopup" style="display: none; margin-top: 10px; background: var(--input-bg); padding: 15px; border-radius: 10px;">
+        <input type="file" id="profilePicInput" accept="image/*" style="display: none;" />
+        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+          <button onclick="document.getElementById('profilePicInput').click()">🖼️ Change Picture</button>
+          <img id="previewPic" src="https://via.placeholder.com/60" style="width: 60px; height: 60px; border-radius: 50%;" />
+        </div>
+        <input type="text" id="profileName" placeholder="Enter your name" style="width: 100%; padding: 10px;" />
+        <button style="margin-top: 10px;" onclick="saveProfile()">Save Profile</button>
+      </div>
+    </div>
+    
+   
+
+    <div class="section">
+      <h3>Monthly Salary & Savings</h3>
+      <input type="number" placeholder="Enter Monthly Salary" id="monthlySalary">
+      <input type="number" placeholder="Enter Savings Target" id="savingsTarget">
+    </div>
+
+    <div class="section">
+      <h3>Add Daily Expense</h3>
+      <input type="text" placeholder="Expense Name" id="expenseName">
+      <input type="number" placeholder="Amount" id="expenseAmount">
+      <input type="date" id="expenseDate">
+      <select id="expenseCategory" onchange="handleCategoryChange()">
+        <option value="Food">Food</option>
+        <option value="Transport">Transport</option>
+        <option value="Bills">Bills</option>
+        <option value="Entertainment">Entertainment</option>
+        <option value="Health">Health</option>
+        <option value="Education">Education</option>
+        <option value="Groceries">Groceries</option>
+        <option value="Shopping">Shopping</option>
+        <option value="Utilities">Utilities</option>
+        <option value="Travel">Travel</option>
+        <option value="Others">Others</option>
+      </select>
+      <input type="text" id="customCategory" placeholder="Enter custom category" style="display: none;" />
+      <button id="addExpenseBtn">Add Expense</button>
+    </div>
+
+    
+    <div class="section">
+      <h3>Search & Filter</h3>
+      <input type="text" placeholder="Search by name" id="searchName">
+      <input type="date" id="searchDate">
+    </div>
+
+    <div class="section">
+      <h3>Expense List</h3>
+      <ul id="expenseList" class="expense-list"></ul>
+    </div>
+
+    <div class="section">
+      <h3>Summary</h3>
+      <div id="summary"></div>
+    </div>
+
+    <div class="section charts-container">
+      <h3>Daily Expenses Chart</h3>
+      <canvas id="dailyChart" height="200"></canvas>
+    </div>
+
+    <div class="section charts-container">
+      <h3>Monthly Summary</h3>
+      <canvas id="monthlyChart" height="200"></canvas>
+    </div>
+
+    <div class="section charts-container">
+      <h3>Income vs Expenses vs Savings</h3>
+      <canvas id="balanceChart" height="200"></canvas>
+    </div>
+  </div>
+
+  <script>
+    let expenses = [];
+
+    setTimeout(() => {
+      document.getElementById('splash').style.display = 'none';
+      document.getElementById('loginPage').style.display = 'flex';
+    }, 2000);
+
+    document.getElementById('signInBtn').onclick = () => {
+      document.getElementById('loginPage').style.display = 'none';
+      document.getElementById('homePage').style.display = 'flex';
+      renderExpenses();
+    };
+
+    document.getElementById('toggleMode').onclick = () => {
+      document.body.classList.toggle('light-mode');
+      document.getElementById('toggleMode').textContent = document.body.classList.contains('light-mode') ? '☀️' : '🌙';
+    };
+
+    document.getElementById('addExpenseBtn').addEventListener('click', addExpense);
+    document.getElementById('searchName').addEventListener('input', renderExpenses);
+    document.getElementById('searchDate').addEventListener('change', renderExpenses);
+
+    function handleCategoryChange() {
+      const category = document.getElementById('expenseCategory').value;
+      const customInput = document.getElementById('customCategory');
+      customInput.style.display = category === 'Others' ? 'block' : 'none';
+    }
+
+    function addExpense() {
+      const name = document.getElementById('expenseName').value.trim();
+      const amount = parseFloat(document.getElementById('expenseAmount').value);
+      const date = document.getElementById('expenseDate').value;
+      let category = document.getElementById('expenseCategory').value;
+
+      if (category === 'Others') {
+        category = document.getElementById('customCategory').value || 'Others';
+      }
+
+      if (!name || isNaN(amount) || !date) return alert('Fill all fields correctly!');
+      expenses.push({ name, amount, date, category });
+      document.getElementById('expenseName').value = '';
+      document.getElementById('expenseAmount').value = '';
+      document.getElementById('expenseDate').value = '';
+      document.getElementById('expenseCategory').value = 'Food';
+      document.getElementById('customCategory').value = '';
+      renderExpenses();
+      updateCharts();
+    }
+
+    function renderExpenses() {
+      const list = document.getElementById('expenseList');
+      const nameFilter = document.getElementById('searchName').value.toLowerCase();
+      const dateFilter = document.getElementById('searchDate').value;
+      list.innerHTML = '';
+      const filteredExpenses = expenses.filter(e => {
+        const matchesName = !nameFilter || e.name.toLowerCase().includes(nameFilter);
+        const matchesDate = !dateFilter || e.date === dateFilter;
+        return matchesName && matchesDate;
+      });
+      filteredExpenses.forEach((e, i) => {
+        const li = document.createElement('li');
+        li.innerHTML = `${e.date}: ${e.name} - ₹${e.amount} [${e.category}]
+          <button onclick="editExpense(${i})">✏️</button>
+          <button onclick="deleteExpense(${i})">🗑️</button>`;
+        list.appendChild(li);
+      });
+      updateSummary();
+    }
+
+    function updateSummary() {
+      const salary = parseFloat(document.getElementById('monthlySalary').value) || 0;
+      const savingsTarget = parseFloat(document.getElementById('savingsTarget').value) || 0;
+      const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0);
+      const savings = salary - totalExpenses;
+
+      if (savingsTarget > 0 && savings < savingsTarget) {
+        alert("⚠️ Warning: Your savings are below your target!");
+      }
+
+      const categoryLimits = {
+        Food: 5000,
+        Transport: 3000,
+        Bills: 4000,
+        Entertainment: 2000,
+        Health: 2500,
+        Education: 3000,
+        Groceries: 4000,
+        Shopping: 5000,
+        Utilities: 3500,
+        Travel: 4500,
+        Others: 2500
+      };
+      
+
+      const categoryTotals = {};
+      expenses.forEach(e => {
+        categoryTotals[e.category] = (categoryTotals[e.category] || 0) + e.amount;
+      });
+
+      Object.entries(categoryTotals).forEach(([cat, total]) => {
+        if (categoryLimits[cat] && total > categoryLimits[cat]) {
+          alert(`🚨 Overspending in "${cat}" category! You spent ₹${total} (limit: ₹${categoryLimits[cat]})`);
+        }
+      });
+
+      const today = new Date();
+      if (today.getDate() >= 28 && savings <= 0) {
+        alert("⏰ Reminder: You haven't saved anything this month!");
+      }
+
+      document.getElementById('summary').innerHTML = `        
+        <p><strong>Monthly Salary:</strong> ₹${salary}</p>
+        <p><strong>Total Expenses:</strong> ₹${totalExpenses}</p>
+        <p><strong>Savings:</strong> ₹${savings} ${savings < savingsTarget ? '⚠️ Below Target' : '✅ On Track'}</p>
+        <p><strong>Savings Target:</strong> ₹${savingsTarget}</p>
+      `;
+    }
+
+    function editExpense(index) {
+      const e = expenses[index];
+      document.getElementById('expenseName').value = e.name;
+      document.getElementById('expenseAmount').value = e.amount;
+      document.getElementById('expenseDate').value = e.date;
+      document.getElementById('expenseCategory').value = e.category;
+      deleteExpense(index);
+    }
+
+    function deleteExpense(index) {
+      expenses.splice(index, 1);
+      renderExpenses();
+      updateCharts();
+    }
+
+    function updateCharts() {
+      const dailyData = {};
+      const monthlyData = {};
+      const salary = parseFloat(document.getElementById('monthlySalary').value) || 0;
+      let totalExpenses = 0;
+
+      expenses.forEach(e => {
+        dailyData[e.date] = (dailyData[e.date] || 0) + e.amount;
+        const month = e.date.slice(0, 7);
+        monthlyData[month] = (monthlyData[month] || 0) + e.amount;
+        totalExpenses += e.amount;
+      });
+
+      const savings = salary - totalExpenses;
+      renderChart('dailyChart', 'Daily Expenses', dailyData, '#3a47d5');
+      renderChart('monthlyChart', 'Monthly Expenses', monthlyData, '#00d2ff');
+      renderBalanceChart(salary, totalExpenses, savings);
+    }
+
+    function renderChart(id, label, dataObj, color) {
+      const ctx = document.getElementById(id).getContext('2d');
+      if (window[id] && typeof window[id].destroy === 'function') {
+        window[id].destroy();
+      }
+      window[id] = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: Object.keys(dataObj),
+          datasets: [{ label, data: Object.values(dataObj), backgroundColor: color }]
+        },
+        options: { responsive: true, plugins: { legend: { display: false } } }
+      });
+    }
+    const profilePic = document.getElementById('profilePic');
+const profilePopup = document.getElementById('profilePopup');
+const profilePicInput = document.getElementById('profilePicInput');
+const previewPic = document.getElementById('previewPic');
+const profileNameInput = document.getElementById('profileName');
+
+// Toggle profile editor popup
+profilePic.onclick = () => {
+  profilePopup.style.display = profilePopup.style.display === 'none' ? 'block' : 'none';
+};
+
+// Load saved profile
+window.addEventListener('load', () => {
+  const savedName = localStorage.getItem('profileName');
+  const savedPic = localStorage.getItem('profilePic');
+  if (savedName) {
+    profileNameInput.value = savedName;
+  }
+  if (savedPic) {
+    profilePic.src = savedPic;
+    previewPic.src = savedPic;
+  }
+});
+
+// When a new image is selected
+profilePicInput.addEventListener('change', function () {
+  const file = this.files[0];
+  if (file) {
+    const reader = new FileReader();
+    reader.onload = function (e) {
+      previewPic.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  }
+});
+
+// Save profile data
+function saveProfile() {
+  const name = profileNameInput.value.trim();
+  const picData = previewPic.src;
+
+  if (!name) {
+    alert("Please enter your name!");
+    return;
+  }
+
+  localStorage.setItem('profileName', name);
+  localStorage.setItem('profilePic', picData);
+
+  profilePic.src = picData;
+  alert("✅ Profile updated!");
+  profilePopup.style.display = 'none';
+}
+
+
+    function renderBalanceChart(income, expenses, savings) {
+      const ctx = document.getElementById('balanceChart').getContext('2d');
+      if (window.balanceChart && typeof window.balanceChart.destroy === 'function') {
+        window.balanceChart.destroy();
+      }
+      window.balanceChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: ['Income', 'Expenses', 'Savings'],
+          datasets: [{
+            label: 'Monthly Overview',
+            data: [income, expenses, savings],
+            backgroundColor: ['#28a745', '#dc3545', '#17a2b8']
+          }]
+        },
+        options: { responsive: true, plugins: { legend: { display: false } } }
+      });
+    }
+    
+  </script>
+</body>
+</html>
